@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>フォークリフト運搬費 計算ツール（販売車両）</title>
+<style>
+/* ============================================================
+   フォークリフト運搬費 計算ツール（販売車両・km単価方式）
+   フジブランド：#0095D9（メイン）/#00467A（締め）/#E8F4FB（背景）
+   2026-07-22 サンデー製。既存の「自社便vs外注 比較ツール」とは別アプリ
+   ============================================================ */
+:root{
+  --fuji:#0095D9; --navy:#00467A; --sky:#E8F4FB; --ink:#333333;
+  --gray:#767C85; --warn:#b45309; --line:#cfe0ec; --card:#ffffff;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+  background:var(--sky); color:var(--ink); line-height:1.65; font-size:15px;
+  -webkit-text-size-adjust:100%;
+}
+button, select, input{font-family:inherit;}
+button:focus-visible, input:focus-visible, select:focus-visible{outline:3px solid rgba(0,149,217,.45); outline-offset:1px;}
+
+header{background:linear-gradient(135deg,var(--fuji) 0%,var(--navy) 100%); color:#fff; padding:20px 16px 16px;}
+header h1{max-width:720px; margin:0 auto; font-size:20px; font-weight:700; line-height:1.5;}
+header p{max-width:720px; margin:4px auto 0; font-size:12.5px; opacity:.92;}
+.tag{display:inline-block; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.5); border-radius:999px; padding:2px 12px; font-size:12px; font-weight:600; margin-left:8px; vertical-align:middle; white-space:nowrap;}
+#area-strip{background:#fff; color:var(--navy); font-size:12.5px; font-weight:600; text-align:center; padding:7px 12px; border-bottom:1px solid var(--line);}
+main{max-width:720px; margin:0 auto; padding:18px 16px 34px;}
+footer{max-width:720px; margin:0 auto; padding:26px 16px 40px; text-align:center; font-size:11.5px; color:var(--gray);}
+
+h2{font-size:17px; font-weight:700; color:var(--navy); margin:24px 0 10px; padding-left:10px; border-left:5px solid var(--fuji);}
+main > h2:first-child{margin-top:4px;}
+.hint{font-size:11.5px; color:var(--gray); margin-top:6px; line-height:1.6;}
+.note{font-size:13px; color:var(--gray); margin-top:12px; line-height:1.7; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
+.note b{color:var(--navy);}
+
+/* 行き先 */
+select#pref{width:100%; min-height:48px; font-size:16px; color:var(--ink); background:#fff; border:1.5px solid var(--line); border-radius:8px; padding:8px 10px;}
+#route-card{background:var(--card); border:1px solid var(--line); border-left:6px solid var(--fuji); border-radius:10px; padding:12px 14px; margin-top:10px; font-size:13.5px; line-height:1.8;}
+#route-card .rc-row{display:flex; gap:8px; align-items:flex-start;}
+#route-card .rc-label{flex:0 0 64px; font-weight:700; color:var(--navy); white-space:nowrap;}
+#route-card ul{list-style:none; margin:0;}
+#route-card li{padding:1px 0;}
+#route-card .rc-note{font-size:11.5px; color:var(--warn); margin-top:6px;}
+#route-card .rc-choice{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+#route-card .rc-choice-label{font-size:12.5px; font-weight:700; color:var(--navy);}
+#route-card .rc-choice button.seg-btn{min-height:38px; padding:6px 16px; font-size:13px;}
+#verdict.ferry-blocked{border-top-color:var(--warn);}
+#verdict.ferry-blocked .v-main{font-size:clamp(19px,4.6vw,24px); color:var(--warn); font-weight:800; padding:6px 0; line-height:1.5;}
+
+/* 距離 */
+.ctrl{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px 16px;}
+.ctrl label{display:flex; justify-content:space-between; align-items:baseline; gap:6px; font-size:13px; font-weight:600;}
+.ctrl .val{font-size:16px; font-weight:700; color:var(--navy); white-space:nowrap;}
+.ctrl input[type=range]{width:100%; height:36px; accent-color:var(--fuji); margin-top:4px;}
+input[type=number]{font:inherit; font-size:16px; color:var(--ink); background:#fff; border:1.5px solid var(--line); border-radius:6px; padding:7px 9px; min-height:44px; width:130px;}
+input[type=text]{font:inherit; font-size:16px; color:var(--ink); background:#fff; border:1.5px solid var(--line); border-radius:6px; padding:7px 9px; min-height:44px;}
+input[type=number]:focus, input[type=text]:focus{border-color:var(--fuji);}
+.addr-label{margin-bottom:6px;}
+#addr{width:100%;}
+#gmap-row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px;}
+#gmap-row .gmap-label{font-size:13px; font-weight:600; color:var(--navy);}
+#gmap-row .org-btn{min-height:44px; padding:8px 18px;}
+#gmap-btn{min-height:44px; margin-top:8px; padding:8px 16px; background:var(--fuji); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer;}
+#gmap-btn:hover{background:#007cb8;}
+hr.sep{border:none; border-top:1px dashed var(--line); margin:14px 0 10px;}
+.home-row{display:flex; align-items:center; gap:8px; margin-top:8px; font-size:13px; font-weight:600; color:var(--navy);}
+.home-row input{flex:1 1 auto;}
+#ref-chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+#ref-chips button{min-height:40px; padding:6px 14px; font-size:13px; font-weight:600; color:var(--navy); background:#fff; border:1.5px solid var(--fuji); border-radius:999px; cursor:pointer;}
+#ref-chips button:hover{background:var(--sky);}
+#ref-none{font-size:11.5px; color:var(--gray); margin-top:8px;}
+
+/* 経由地リスト（運び方＝経由して複数箇所） */
+.leg-row{background:#fff; border:1.5px solid var(--line); border-radius:8px; padding:10px 12px; margin-top:10px;}
+.leg-row:first-child{margin-top:0;}
+.leg-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+.leg-label{font-size:13px; font-weight:700; color:var(--navy);}
+button.leg-del{min-height:32px; padding:4px 10px; font-size:12px; color:var(--gray); background:#fff; border:1.5px solid var(--line); border-radius:6px; cursor:pointer;}
+button.leg-del:hover{background:var(--sky);}
+.leg-addr{width:100%;}
+.leg-actions{display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;}
+button.leg-map{min-height:40px; padding:6px 12px; font-size:12.5px; font-weight:700; color:var(--navy); background:#fff; border:1.5px solid var(--fuji); border-radius:8px; cursor:pointer;}
+button.leg-map:hover{background:var(--sky);}
+.leg-km{width:90px;}
+#leg-add{min-height:44px; margin-top:10px; padding:10px 18px; background:#fff; color:var(--navy); border:1.5px solid var(--fuji); border-radius:8px; font-size:14.5px; font-weight:700; cursor:pointer;}
+#leg-add:hover{background:var(--sky);}
+#legs-total{margin-top:12px; padding:12px 14px; background:var(--sky); border:1.5px solid var(--fuji); border-radius:8px; font-size:15px; font-weight:700; color:var(--navy); line-height:1.6;}
+#legs-total .warn{display:block; font-size:12px; font-weight:600; color:var(--warn); margin-top:4px;}
+
+/* 台数 */
+#count-box{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+button.seg-btn{min-height:48px; padding:10px 12px; font-size:15px; font-weight:600; color:var(--ink); background:#fff; border:1.5px solid var(--line); border-radius:8px; cursor:pointer;}
+button.seg-btn:hover{background:var(--sky);}
+button.seg-btn.active{background:var(--fuji); border-color:var(--fuji); color:#fff; font-weight:700;}
+
+/* 結果 */
+#verdict{background:var(--card); border:1px solid var(--line); border-top:6px solid var(--fuji); border-radius:10px; padding:16px 14px 18px; text-align:center; margin-top:20px;}
+#verdict .v-sub{font-size:15px; font-weight:700; color:var(--navy);}
+#verdict .v-main{font-size:clamp(38px,9vw,60px); font-weight:900; line-height:1.15; color:var(--navy); letter-spacing:.01em;}
+#verdict .v-formula{font-size:13px; color:var(--gray); margin-top:6px;}
+#verdict.empty .v-main{font-size:clamp(20px,5vw,26px); color:var(--gray); padding:10px 0;}
+#warn-multi{background:#fff7ed; border:1.5px solid var(--warn); border-radius:10px; color:var(--warn); font-weight:600; font-size:13px; padding:10px 14px; margin-top:10px; line-height:1.6;}
+
+/* 折りたたみ（航路一覧・設定） */
+details{background:var(--card); border:1px solid var(--line); border-radius:10px; margin-top:14px; overflow:hidden;}
+summary{cursor:pointer; padding:13px 14px; min-height:48px; font-weight:700; font-size:14px; color:var(--navy); background:#f7fbfd; list-style:none; display:flex; align-items:center; gap:8px;}
+summary::-webkit-details-marker{display:none;}
+summary::before{content:"▸"; color:var(--gray); transition:transform .15s;}
+details[open] summary::before{transform:rotate(90deg);}
+.d-body{padding:12px 14px 16px; border-top:1px dashed var(--line);}
+.tablewrap{overflow-x:auto;}
+table{width:100%; border-collapse:collapse; background:var(--card); font-size:13px;}
+th, td{border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top;}
+th{background:var(--sky); color:var(--navy); font-size:12px; white-space:nowrap;}
+#rate-input{width:120px;}
+#rate-reset{min-height:44px; padding:8px 16px; margin-left:10px; background:#fff; color:var(--navy); border:1.5px solid var(--fuji); border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer;}
+#rate-reset:hover{background:var(--sky);}
+.memo{background:#f4fafd; border:1.5px dashed var(--fuji); border-radius:10px; padding:10px 14px; font-size:13px; margin-top:12px; line-height:1.7;}
+
+@media(max-width:600px){
+  header h1{font-size:17px;}
+  main{padding:14px 12px 30px;}
+}
+@media print{
+  #ref-chips, details{display:none;}
+  body{background:#fff;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>フォークリフト運搬費 計算ツール <span class="tag">販売車両・<span id="h-rate">250</span>円/km</span></h1>
+  <p>フジ自動車工業株式会社（社内用）</p>
+</header>
+
+<div id="area-strip">対象：本州・四国・九州（北海道・沖縄は対象外）｜金額＝走行キロ × km単価</div>
+
+<main>
+  <h2>1. 行き先（都道府県）</h2>
+  <select id="pref"></select>
+  <div id="route-card" hidden></div>
+
+  <h2>2. 距離を測って入れる</h2>
+  <div class="ctrl">
+    <div id="gmap-row">
+      <span class="gmap-label">出発地</span>
+      <button type="button" class="seg-btn org-btn" data-val="一宮">一宮</button>
+      <button type="button" class="seg-btn org-btn" data-val="三好">三好</button>
+      <button type="button" class="seg-btn org-btn" data-val="中央">中央</button>
+    </div>
+    <p class="hint">出発地の住所（一宮工場・三好工場・中央自動車工業）は公式サイトの所在地で設定済みです（変更は下の「設定」から）。</p>
+
+    <div id="simple-dist-block">
+      <hr class="sep">
+      <label class="addr-label">納車先の住所（番地まで入れられます・任意）</label>
+      <input type="text" id="addr" placeholder="例：新潟県上越市◯◯町1-2-3">
+      <button type="button" id="gmap-btn">Googleマップで距離を測る</button>
+      <p class="hint">ボタンを押すとGoogleマップのルート検索が開きます（無料）。出てきた距離（km）を下の欄に入力してください。</p>
+      <hr class="sep">
+      <label><span id="km-label">片道</span> <span class="val" id="km-val">未入力</span></label>
+      <input type="range" id="km-range" min="10" max="1500" step="10">
+      <input type="number" id="km-num" min="0" max="3000" step="0.1"> km
+      <div id="ref-chips"></div>
+      <p class="hint" id="ref-none">距離は地図アプリ（Googleマップ等）で実測して入力してください。過去の運搬実績がある行き先を選ぶと、実測距離のボタンがここに出ます（タップで入力されます）。</p>
+    </div>
+
+    <div id="keiyu-block" hidden>
+      <hr class="sep">
+      <label class="addr-label" style="margin-bottom:10px;">経由地・最終目的地（区間ごとに距離を入れると自動で合計します）</label>
+      <div id="legs-list"></div>
+      <button type="button" id="leg-add">＋経由地を追加</button>
+      <div id="legs-total"></div>
+    </div>
+  </div>
+
+  <h2>3. 運び方</h2>
+  <div id="count-box">
+    <button type="button" class="seg-btn active" data-val="1">1台</button>
+    <button type="button" class="seg-btn" data-val="2">2台（同じ場所）</button>
+    <button type="button" class="seg-btn" data-val="keiyu">経由して複数箇所</button>
+  </div>
+  <div id="mode-note" class="memo" hidden></div>
+
+  <div id="verdict" class="empty"><div class="v-main">距離を入れると金額が出ます</div></div>
+
+  <p class="note"><b>金額 ＝ 走行キロ × km単価</b> で計算します。フォークリフト2台までは、同じ場所への搬送ならトラック1台で運べるため<b>1台のときと同じ金額</b>です（2026-07-22決定）。同じ場所へ3台以上運ぶ場合はトラック2台以上になるため、金額の決め方は ※要確認・会議で確定。販売車両の納車用の運搬費です（オークション出品・落札引取の社内コスト比較は、既存の「自社便 vs 外注 比較ツール」を使ってください）。税込／税抜の扱いは ※要確認・会議で確定。</p>
+
+  <details>
+    <summary>フェリーで行けるところ・陸送で行けるところ（一覧）</summary>
+    <div class="d-body">
+      <p class="hint" style="margin-top:0; margin-bottom:8px;">本州・四国・九州はすべて陸送で行けます（四国＝瀬戸大橋・しまなみ海道・神戸淡路鳴門道／九州＝関門橋・関門トンネル）。そのうえで、下記の方面は主要フェリー航路も使えます。運航状況・ダイヤ・運賃・積載車（トラック）の航送条件は各社に ※要確認。</p>
+      <div class="tablewrap"><table>
+        <tr><th>方面</th><th>主要フェリー航路</th></tr>
+        <tr><td>宮城県</td><td>太平洋フェリー（名古屋 → 仙台）</td></tr>
+        <tr><td>秋田県</td><td>新日本海フェリー（敦賀 → 秋田）</td></tr>
+        <tr><td>徳島県</td><td>南海フェリー（和歌山 → 徳島）</td></tr>
+        <tr><td>香川県</td><td>ジャンボフェリー（神戸 → 高松）</td></tr>
+        <tr><td>愛媛県</td><td>オレンジフェリー（大阪 → 東予）</td></tr>
+        <tr><td>福岡県</td><td>名門大洋フェリー（大阪南港 → 新門司）／阪九フェリー（神戸・泉大津 → 新門司）</td></tr>
+        <tr><td>大分県</td><td>フェリーさんふらわあ（大阪 → 別府／神戸 → 大分）</td></tr>
+        <tr><td>宮崎県</td><td>宮崎カーフェリー（神戸 → 宮崎）</td></tr>
+        <tr><td>鹿児島県</td><td>フェリーさんふらわあ（大阪 → 志布志）</td></tr>
+      </table></div>
+      <p class="hint">上記以外の本州の各県は陸送のみが基本です。高知県・佐賀県・長崎県・熊本県への直行フェリーはありません（上陸後に陸送）。北海道・沖縄はこのツールの対象外です（船便のため、km単価での計算が合いません）。</p>
+      <p class="hint">フェリーが使える行き先を選ぶと「1. 行き先」の下に陸送／フェリーの選択ボタンが出ます。<b>「フェリー」を選ぶと、フェリー運賃は距離に比例しないため金額は表示されません。</b>フェリー会社に運賃を直接お問い合わせください。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>設定（km単価の変更）</summary>
+    <div class="d-body">
+      <label style="font-size:13px; font-weight:600;">1kmあたりの単価（円）</label><br>
+      <input type="number" id="rate-input" min="1" max="9999" step="1">
+      <button type="button" id="rate-reset">250円に戻す</button>
+      <p class="hint">初期値の250円/kmは2026-07-22に決定した販売車両の運搬費単価です。金額の決め直しがあったらここを変えてください（このパソコン・スマホの中に保存されます。端末ごとの設定です）。変えたときは「いつ・いくらに・なぜ」を会議のメモに残してください。</p>
+      <label style="font-size:13px; font-weight:600;">拠点の住所（Googleマップの出発地に使います）</label>
+      <div class="home-row">一宮<input type="text" id="home-ichinomiya"></div>
+      <div class="home-row">三好<input type="text" id="home-miyoshi"></div>
+      <div class="home-row">中央<input type="text" id="home-chuo"></div>
+      <p class="hint">初期値は公式サイト記載の各拠点の所在地です（一宮工場・三好工場・中央自動車工業。2026-07-22確認）。移転などで変わったらここを書き換えてください（この端末に保存されます。空欄にすると初期の住所に戻ります）。</p>
+      <div class="memo">社内メモ：運搬の外注は光栄通運（イマゼン）に一本化（2026-07-22決定）。他の業者は基本使いません。手配時の連絡先・条件は担当者に確認してください。</div>
+    </div>
+  </details>
+</main>
+
+<footer>フジ自動車工業株式会社（社内用）｜単価・税区分・複数台の扱いは会議で確定してください</footer>
+
+<script>
+"use strict";
+/* ============================================================
+   フォークリフト運搬費 計算ツール（販売車両）
+   localStorageキー：fl_unpanhi_v1（保存するのは単価のみ）
+   ============================================================ */
+
+// ==== PURE ====
+const LS_KEY = "fl_unpanhi_v1";
+const DEFAULT_RATE = 250;   // 円/km（2026-07-22決定・販売車両）
+
+/* 拠点住所の初期値（公式サイト corp.fuji-auto-ind.co.jp「会社情報＞アクセス」より・2026-07-22確認。
+   三好はObsidian記録、中央はWebex納車連絡の記録とも一致を確認済み） */
+const DEFAULT_HOMES = {
+  "一宮": "愛知県一宮市天王2丁目6-18",
+  "三好": "愛知県みよし市三好町中鯰ヶ池83番地1",
+  "中央": "愛知県津島市莪原町字河原143-1"
+};
+
+/* 対象45都道府県（本州34・四国4・九州7。北海道・沖縄は対象外）
+   ferries：使える主要フェリー航路（一般に知られる車両航送航路。運航状況・運賃は※要確認）
+   noferry：直行フェリーがない場合の案内（特筆すべき県のみ）
+   refs：過去の運搬実績の実測距離（2026-07-22の基幹システム実績より。出発地つき・創作ではない） */
+const PREFS = [
+  {n:"青森県",   r:"東北"},
+  {n:"岩手県",   r:"東北"},
+  {n:"宮城県",   r:"東北", ferries:[["太平洋フェリー","名古屋 → 仙台"]], refs:[["一宮",745.3]]},
+  {n:"秋田県",   r:"東北", ferries:[["新日本海フェリー","敦賀 → 秋田"]], refs:[["三好",752.5]]},
+  {n:"山形県",   r:"東北", refs:[["三好",697.9]]},
+  {n:"福島県",   r:"東北", refs:[["一宮",589.5],["一宮",624.5]]},
+  {n:"茨城県",   r:"関東", refs:[["一宮",466.1]]},
+  {n:"栃木県",   r:"関東"},
+  {n:"群馬県",   r:"関東"},
+  {n:"埼玉県",   r:"関東", refs:[["三好",392.4]]},
+  {n:"千葉県",   r:"関東"},
+  {n:"東京都",   r:"関東", refs:[["三好",301.8]]},
+  {n:"神奈川県", r:"関東"},
+  {n:"新潟県",   r:"中部", refs:[["一宮",344.2],["一宮",435.2],["三好",438.1],["一宮",524.8]]},
+  {n:"富山県",   r:"中部"},
+  {n:"石川県",   r:"中部", refs:[["三好",221.1],["三好",309.6]]},
+  {n:"福井県",   r:"中部"},
+  {n:"山梨県",   r:"中部"},
+  {n:"長野県",   r:"中部"},
+  {n:"岐阜県",   r:"中部", refs:[["三好",185.7]]},
+  {n:"静岡県",   r:"中部"},
+  {n:"愛知県",   r:"中部"},
+  {n:"三重県",   r:"近畿"},
+  {n:"滋賀県",   r:"近畿"},
+  {n:"京都府",   r:"近畿"},
+  {n:"大阪府",   r:"近畿", refs:[["三好",214]]},
+  {n:"兵庫県",   r:"近畿"},
+  {n:"奈良県",   r:"近畿"},
+  {n:"和歌山県", r:"近畿"},
+  {n:"鳥取県",   r:"中国"},
+  {n:"島根県",   r:"中国"},
+  {n:"岡山県",   r:"中国"},
+  {n:"広島県",   r:"中国", refs:[["一宮",479.5]]},
+  {n:"山口県",   r:"中国"},
+  {n:"徳島県",   r:"四国", ferries:[["南海フェリー","和歌山 → 徳島"]]},
+  {n:"香川県",   r:"四国", ferries:[["ジャンボフェリー","神戸 → 高松"]]},
+  {n:"愛媛県",   r:"四国", ferries:[["オレンジフェリー","大阪 → 東予"]]},
+  {n:"高知県",   r:"四国", noferry:"主要な直行フェリーはありません（陸路で四国へ入り、陸送）"},
+  {n:"福岡県",   r:"九州", ferries:[["名門大洋フェリー","大阪南港 → 新門司"],["阪九フェリー","神戸・泉大津 → 新門司"]]},
+  {n:"佐賀県",   r:"九州", noferry:"直行フェリーはありません（新門司などで上陸後、陸送）"},
+  {n:"長崎県",   r:"九州", noferry:"直行フェリーはありません（新門司などで上陸後、陸送）"},
+  {n:"熊本県",   r:"九州", noferry:"直行フェリーはありません（新門司などで上陸後、陸送）"},
+  {n:"大分県",   r:"九州", ferries:[["フェリーさんふらわあ","大阪 → 別府／神戸 → 大分"]]},
+  {n:"宮崎県",   r:"九州", ferries:[["宮崎カーフェリー","神戸 → 宮崎"]]},
+  {n:"鹿児島県", r:"九州", ferries:[["フェリーさんふらわあ","大阪 → 志布志"]]}
+];
+const REGIONS = ["東北","関東","中部","近畿","中国","四国","九州"];
+
+/* 地方ごとの陸送ルート説明（地理的事実のみ） */
+function landText(region){
+  if(region==="四国") return "瀬戸大橋・しまなみ海道・神戸淡路鳴門道のいずれかを通って陸送できます";
+  if(region==="九州") return "関門橋（関門トンネル）経由で陸送できます";
+  return "高速道路で直行できます（本州内）";
+}
+
+/* 運搬費計算：走行キロ × 単価（四捨五入）。
+   台数では掛けない — FL2台までは同じ場所ならトラック1台＝1台と同額、
+   経由ありはトータル走行キロで計算（2026-07-22決定） */
+function calcFee(km, rate){
+  if(typeof km!=="number" || !isFinite(km) || km<=0) return null;
+  if(typeof rate!=="number" || !isFinite(rate) || rate<=0) return null;
+  return {total: Math.round(km*rate)};
+}
+
+/* 経由地リストの距離を合計する。純関数。
+   1区間でも距離が未入力なら合計は確定させない（allFilled=false・合計は参考値として返す） */
+function sumLegs(legs){
+  let sum = 0, validCount = 0;
+  (legs||[]).forEach(function(l){
+    if(l && typeof l.km==="number" && isFinite(l.km) && l.km>0){ sum += l.km; validCount++; }
+  });
+  const total = (legs||[]).length;
+  return {sum:sum, validCount:validCount, total:total, allFilled:(total>0 && validCount===total)};
+}
+// ==== /PURE ====
+
+function yen(n){ return Math.round(n).toLocaleString("ja-JP")+"円"; }
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function el(id){ return document.getElementById(id); }
+
+/* 保存・読込（単価・出発地・拠点住所。行き先・距離・運び方は案件ごとに変わるため保存しない） */
+function loadSaved(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LS_KEY));
+    if(s && typeof s==="object") return s;
+  }catch(e){}
+  return {};
+}
+const SAVED = loadSaved();
+/* 保存済みの住所が空欄なら初期の公式住所に戻す（旧版で空欄のまま保存されたデータも自動で初期値に切り替わる） */
+function savedHome(v, def){ return (typeof v==="string" && v.trim()!=="") ? v : def; }
+const ST = {pref:"", km:null, mode:"1", addr:"", routeMode:"land", origin:((SAVED.origin==="三好"||SAVED.origin==="中央") ? SAVED.origin : "一宮"), rate:((typeof SAVED.rate==="number" && isFinite(SAVED.rate) && SAVED.rate>0) ? SAVED.rate : DEFAULT_RATE), homes:{"一宮":savedHome(SAVED.homeIchinomiya, DEFAULT_HOMES["一宮"]), "三好":savedHome(SAVED.homeMiyoshi, DEFAULT_HOMES["三好"]), "中央":savedHome(SAVED.homeChuo, DEFAULT_HOMES["中央"])}, legs:[], legSeq:0};
+
+/* 経由地を1件追加（住所・kmは空欄で新規作成。案件ごとに変わるため保存しない） */
+function newLeg(){
+  ST.legSeq++;
+  return {id:"leg-"+ST.legSeq, addr:"", km:null};
+}
+function save(){
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      rate:ST.rate, origin:ST.origin,
+      homeIchinomiya:ST.homes["一宮"], homeMiyoshi:ST.homes["三好"], homeChuo:ST.homes["中央"]
+    }));
+  }catch(e){}
+}
+
+/* 行き先セレクト生成（地方ごとの optgroup） */
+function buildPrefSelect(){
+  const sel = el("pref");
+  let h = '<option value="">— 行き先を選んでください —</option>';
+  REGIONS.forEach(function(rg){
+    h += '<optgroup label="'+esc(rg)+'">';
+    PREFS.forEach(function(p){
+      if(p.r===rg) h += '<option value="'+esc(p.n)+'">'+esc(p.n)+'</option>';
+    });
+    h += '</optgroup>';
+  });
+  sel.innerHTML = h;
+  sel.value = ST.pref;
+}
+
+/* ルート情報カード（陸送／フェリー） */
+function renderRoute(){
+  const card = el("route-card");
+  const p = PREFS.find(function(x){ return x.n===ST.pref; });
+  if(!p){ card.hidden = true; return; }
+  let ferryHtml;
+  if(p.ferries && p.ferries.length){
+    ferryHtml = "<ul>" + p.ferries.map(function(f){
+      return "<li>◯ "+esc(f[0])+"（"+esc(f[1])+"）</li>";
+    }).join("") + "</ul>";
+  }else{
+    ferryHtml = esc(p.noferry || "フェリーは通常使いません（陸送で直行）");
+  }
+  const hasFerry = !!(p.ferries && p.ferries.length);
+  card.hidden = false;
+  card.innerHTML =
+    '<div class="rc-row"><span class="rc-label">陸送</span><span>◯ '+esc(landText(p.r))+'</span></div>'
+    + '<div class="rc-row"><span class="rc-label">フェリー</span><span>'+ferryHtml+'</span></div>'
+    + (hasFerry ? '<div class="rc-note">※運航状況・ダイヤ・運賃・積載車（トラック）の航送条件は各社に要確認</div>' : '')
+    + (hasFerry ?
+        '<div class="rc-choice"><span class="rc-choice-label">今回はどちらで運びますか</span>'
+        + '<button type="button" class="seg-btn rc-route-btn'+(ST.routeMode==="land"?" active":"")+'" data-val="land">陸送</button>'
+        + '<button type="button" class="seg-btn rc-route-btn'+(ST.routeMode==="ferry"?" active":"")+'" data-val="ferry">フェリー</button>'
+        + '</div>'
+      : '');
+}
+
+/* 参考距離チップ（過去実績のある県のみ） */
+function renderRefChips(){
+  const box = el("ref-chips");
+  const none = el("ref-none");
+  const p = PREFS.find(function(x){ return x.n===ST.pref; });
+  box.innerHTML = "";
+  if(p && p.refs && p.refs.length){
+    p.refs.forEach(function(rf){
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = "実績 "+rf[0]+" → "+ST.pref+"：片道"+rf[1].toLocaleString("ja-JP")+"km";
+      b.addEventListener("click", function(){
+        ST.km = rf[1];
+        syncKm();
+        renderResult();
+      });
+      box.appendChild(b);
+    });
+    none.textContent = "上のボタンは過去の運搬実績の実測距離です（タップで入力されます）。別の納車先なら地図アプリで実測してください。";
+  }else{
+    none.textContent = "距離は地図アプリ（Googleマップ等）で実測して入力してください。この行き先の運搬実績はまだありません。";
+  }
+}
+
+function syncKm(){
+  el("km-num").value = (ST.km==null) ? "" : ST.km;
+  el("km-range").value = (ST.km==null) ? 300 : Math.max(10, Math.min(1100, ST.km));
+  el("km-val").textContent = (ST.km==null) ? "未入力" : ST.km.toLocaleString("ja-JP")+"km";
+}
+
+/* 運び方（1台／2台・同じ場所／経由）の説明と、距離入力欄の切替 */
+function renderMode(){
+  document.querySelectorAll("#count-box button").forEach(function(b){
+    b.classList.toggle("active", b.dataset.val===ST.mode);
+  });
+  const n = el("mode-note");
+  if(ST.mode==="2"){
+    n.hidden = false;
+    n.textContent = "フォークリフト2台までは、同じ場所への搬送ならトラック1台で運べるため、1台のときと同じ金額です（2026-07-22決定）。";
+  }else if(ST.mode==="keiyu"){
+    n.hidden = false;
+    n.textContent = "経由して複数の場所を回る場合は、実際に走るトータルのキロ数で計算します（2026-07-22決定）。下の「経由地」欄に区間ごとの距離を入れると自動で合計されます。";
+  }else{
+    n.hidden = true;
+  }
+  el("simple-dist-block").hidden = (ST.mode==="keiyu");
+  el("keiyu-block").hidden = (ST.mode!=="keiyu");
+  if(ST.mode==="keiyu"){
+    if(ST.legs.length===0){ ST.legs.push(newLeg()); ST.legs.push(newLeg()); }
+    renderLegs();
+  }
+}
+
+/* 経由地リストの描画とイベント結線 */
+function legLabel(i, n){ return (i===n-1) ? "最終目的地" : ("経由地"+(i+1)); }
+function legMapUrl(fromAddr, toAddr){
+  let url = "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=" + encodeURIComponent(toAddr);
+  if(fromAddr) url += "&origin=" + encodeURIComponent(fromAddr);
+  return url;
+}
+function renderLegs(){
+  const box = el("legs-list");
+  const n = ST.legs.length;
+  let h = "";
+  ST.legs.forEach(function(l, i){
+    h += "<div class='leg-row' data-id='"+esc(l.id)+"'>"
+      + "<div class='leg-head'><span class='leg-label'>"+esc(legLabel(i,n))+"</span>"
+      + (n>1 ? "<button type='button' class='leg-del'>削除</button>" : "")+"</div>"
+      + "<input type='text' class='leg-addr' placeholder='住所（番地まで可・任意）' value='"+esc(l.addr)+"'>"
+      + "<div class='leg-actions'>"
+      + "<button type='button' class='leg-map'>この区間をGoogleマップで測る</button>"
+      + "<input type='number' class='leg-km' min='0' step='0.1' placeholder='km' value='"+(l.km==null?"":l.km)+"'> km"
+      + "</div></div>";
+  });
+  box.innerHTML = h;
+
+  const st = sumLegs(ST.legs);
+  const total = el("legs-total");
+  if(st.total===0){
+    total.innerHTML = "経由地を追加してください";
+  }else if(st.allFilled){
+    total.innerHTML = "合計 "+st.sum.toLocaleString("ja-JP")+"km（"+st.total+"区間）";
+  }else{
+    total.innerHTML = "現在の入力分 "+st.sum.toLocaleString("ja-JP")+"km（"+st.validCount+"/"+st.total+"区間 入力済み）"
+      + "<span class='warn'>すべての区間に距離を入れると金額が出ます</span>";
+  }
+  ST.km = st.allFilled ? st.sum : null;
+  renderResult();
+}
+
+/* 結果表示 */
+function renderResult(){
+  const v = el("verdict");
+  if(ST.routeMode==="ferry"){
+    v.className = "ferry-blocked";
+    const p = PREFS.find(function(x){ return x.n===ST.pref; });
+    const routeTxt = (p && p.ferries && p.ferries.length)
+      ? p.ferries.map(function(f){ return esc(f[0])+"（"+esc(f[1])+"）"; }).join("・")
+      : "";
+    v.innerHTML = '<div class="v-main">フェリー利用時はこの画面では金額を出せません</div>'
+      + '<div class="v-formula">フェリー運賃は距離に比例しないため、km単価の計算は使えません。'
+      + (routeTxt ? routeTxt+"に運賃を直接お問い合わせください。" : "フェリー会社に運賃を直接お問い合わせください。")
+      + '</div>';
+    return;
+  }
+  const r = calcFee(ST.km, ST.rate);
+  if(!r){
+    v.className = "empty";
+    v.innerHTML = '<div class="v-main">距離を入れると金額が出ます</div>';
+    return;
+  }
+  v.className = "";
+  const kmDisp = ST.km.toLocaleString("ja-JP");
+  const subTxt = (ST.mode==="keiyu")
+    ? "運搬費（経由あり・トータル走行キロ）"
+    : "運搬費（片道・"+(ST.mode==="2" ? "2台・同じ場所" : "1台")+(ST.pref ? "・"+esc(ST.pref) : "")+"）";
+  const formula = kmDisp+"km × "+ST.rate.toLocaleString("ja-JP")+"円/km"
+    + (ST.mode==="2" ? "（2台まで1台分と同じ金額）" : "");
+  v.innerHTML =
+    '<div class="v-sub">'+subTxt+'</div>'
+    + '<div class="v-main">'+yen(r.total)+'</div>'
+    + '<div class="v-formula">'+formula+'（税込／税抜は ※要確認）</div>';
+}
+
+function renderSettings(){
+  el("h-rate").textContent = ST.rate.toLocaleString("ja-JP");
+  el("rate-input").value = ST.rate;
+  el("home-ichinomiya").value = ST.homes["一宮"];
+  el("home-miyoshi").value = ST.homes["三好"];
+  el("home-chuo").value = ST.homes["中央"];
+  document.querySelectorAll(".org-btn").forEach(function(b){
+    b.classList.toggle("active", b.dataset.val===ST.origin);
+  });
+}
+
+/* イベント */
+function bindEvents(){
+  el("pref").addEventListener("change", function(e){
+    ST.pref = e.target.value;
+    ST.routeMode = "land";   // 行き先を変えたら陸送/フェリーの選択はいったんリセット（land=安全側）
+    renderRoute();
+    renderRefChips();
+    renderResult();
+  });
+  el("route-card").addEventListener("click", function(e){
+    const b = e.target.closest("button.rc-route-btn"); if(!b) return;
+    ST.routeMode = b.dataset.val;
+    renderRoute();
+    renderResult();
+  });
+  el("km-range").addEventListener("input", function(e){
+    ST.km = Number(e.target.value);
+    syncKm();
+    renderResult();
+  });
+  el("km-num").addEventListener("input", function(e){
+    const n = Number(e.target.value);
+    ST.km = (e.target.value.trim()!=="" && isFinite(n) && n>0) ? n : null;
+    el("km-range").value = (ST.km==null) ? 300 : Math.max(10, Math.min(1100, ST.km));
+    el("km-val").textContent = (ST.km==null) ? "未入力" : ST.km.toLocaleString("ja-JP")+"km";
+    renderResult();
+  });
+  el("count-box").addEventListener("click", function(e){
+    const b = e.target.closest("button.seg-btn"); if(!b) return;
+    ST.mode = b.dataset.val;
+    renderMode();
+    renderResult();
+  });
+
+  /* 住所→Googleマップのルート検索（無料・APIキー不要の公式リンク方式） */
+  el("addr").addEventListener("input", function(e){ ST.addr = e.target.value; });
+  el("gmap-row").addEventListener("click", function(e){
+    const b = e.target.closest("button.org-btn"); if(!b) return;
+    ST.origin = b.dataset.val;
+    save();
+    renderSettings();
+  });
+  el("gmap-btn").addEventListener("click", function(){
+    const dest = ST.addr.trim() || ST.pref;
+    if(!dest){ alert("納車先の住所（または行き先の都道府県）を入れてください"); return; }
+    const home = (ST.homes[ST.origin]||"").trim();
+    let url = "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=" + encodeURIComponent(dest);
+    if(home) url += "&origin=" + encodeURIComponent(home);
+    window.open(url, "_blank", "noopener");
+  });
+
+  el("rate-input").addEventListener("input", function(e){
+    const n = Number(e.target.value);
+    if(e.target.value.trim()==="" || !isFinite(n) || n<=0) return;   // 空欄・0以下は無視（前の値を維持）
+    ST.rate = n;
+    save();
+    renderSettings();
+    renderResult();
+  });
+  el("rate-reset").addEventListener("click", function(){
+    ST.rate = DEFAULT_RATE;
+    save();
+    renderSettings();
+    renderResult();
+  });
+  el("home-ichinomiya").addEventListener("input", function(e){ ST.homes["一宮"] = e.target.value; save(); });
+  el("home-miyoshi").addEventListener("input", function(e){ ST.homes["三好"] = e.target.value; save(); });
+  el("home-chuo").addEventListener("input", function(e){ ST.homes["中央"] = e.target.value; save(); });
+
+  /* 経由地リスト（運び方＝経由して複数箇所） */
+  el("leg-add").addEventListener("click", function(){
+    ST.legs.push(newLeg());
+    renderLegs();
+  });
+  el("legs-list").addEventListener("input", function(e){
+    const row = e.target.closest(".leg-row"); if(!row) return;
+    const l = ST.legs.find(function(x){ return x.id===row.dataset.id; }); if(!l) return;
+    if(e.target.classList.contains("leg-addr")){
+      l.addr = e.target.value;
+    }else if(e.target.classList.contains("leg-km")){
+      const n = Number(e.target.value);
+      l.km = (e.target.value.trim()!=="" && isFinite(n) && n>0) ? n : null;
+      const st = sumLegs(ST.legs);
+      el("legs-total").innerHTML = st.total===0 ? "経由地を追加してください"
+        : st.allFilled ? "合計 "+st.sum.toLocaleString("ja-JP")+"km（"+st.total+"区間）"
+        : "現在の入力分 "+st.sum.toLocaleString("ja-JP")+"km（"+st.validCount+"/"+st.total+"区間 入力済み）<span class='warn'>すべての区間に距離を入れると金額が出ます</span>";
+      ST.km = st.allFilled ? st.sum : null;
+      renderResult();
+      return;   // 金額欄だけ更新（入力中の他行を再描画してフォーカスを失わせない）
+    }else{
+      return;
+    }
+  });
+  el("legs-list").addEventListener("click", function(e){
+    const row = e.target.closest(".leg-row"); if(!row) return;
+    if(e.target.closest("button.leg-del")){
+      ST.legs = ST.legs.filter(function(x){ return x.id!==row.dataset.id; });
+      renderLegs();
+      return;
+    }
+    if(e.target.closest("button.leg-map")){
+      const l = ST.legs.find(function(x){ return x.id===row.dataset.id; }); if(!l) return;
+      const toAddr = l.addr.trim();
+      if(!toAddr){ alert("この区間の住所を入れてください"); return; }
+      const idx = ST.legs.indexOf(l);
+      const fromAddr = (idx===0) ? (ST.homes[ST.origin]||"").trim() : (ST.legs[idx-1].addr||"").trim();
+      window.open(legMapUrl(fromAddr, toAddr), "_blank", "noopener");
+    }
+  });
+}
+
+/* 起動 */
+buildPrefSelect();
+bindEvents();
+renderSettings();
+renderMode();
+syncKm();
+renderRoute();
+renderRefChips();
+renderResult();
+</script>
+</body>
+</html>
