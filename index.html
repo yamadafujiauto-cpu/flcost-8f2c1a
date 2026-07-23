@@ -117,9 +117,9 @@ details[open] summary::before{transform:rotate(90deg);}
 table{width:100%; border-collapse:collapse; background:var(--card); font-size:13px;}
 th, td{border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top;}
 th{background:var(--sky); color:var(--navy); font-size:12px; white-space:nowrap;}
-#rate-input{width:120px;}
-#rate-reset{min-height:44px; padding:8px 16px; margin-left:10px; background:#fff; color:var(--navy); border:1.5px solid var(--fuji); border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer;}
-#rate-reset:hover{background:var(--sky);}
+#rate-input, #minfee-input{width:120px;}
+#rate-reset, #minfee-reset{min-height:44px; padding:8px 16px; margin-left:10px; background:#fff; color:var(--navy); border:1.5px solid var(--fuji); border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer;}
+#rate-reset:hover, #minfee-reset:hover{background:var(--sky);}
 .memo{background:#f4fafd; border:1.5px dashed var(--fuji); border-radius:10px; padding:10px 14px; font-size:13px; margin-top:12px; line-height:1.7;}
 
 @media(max-width:600px){
@@ -189,7 +189,7 @@ th{background:var(--sky); color:var(--navy); font-size:12px; white-space:nowrap;
 
   <div id="verdict" class="empty"><div class="v-main">距離を入れると金額が出ます</div></div>
 
-  <p class="note"><b>金額 ＝ 走行キロ × km単価</b> で計算します。フォークリフト2台までは、同じ場所への搬送ならトラック1台で運べるため<b>1台のときと同じ金額</b>です（2026-07-22決定）。同じ場所へ3台以上運ぶ場合はトラック2台以上になるため、金額の決め方は ※要確認・会議で確定。販売車両の納車用の運搬費です（オークション出品・落札引取の社内コスト比較は、既存の「自社便 vs 外注 比較ツール」を使ってください）。税込／税抜の扱いは ※要確認・会議で確定。</p>
+  <p class="note"><b>金額 ＝ 走行キロ × km単価</b>（ただし<b>最低16,000円は保証</b>）で計算します（2026-07-23決定）。フォークリフト2台までは、同じ場所への搬送ならトラック1台で運べるため<b>1台のときと同じ金額</b>です（2026-07-22決定）。同じ場所へ3台以上運ぶ場合はトラック2台以上になるため、金額の決め方は ※要確認・会議で確定。販売車両の納車用の運搬費です（オークション出品・落札引取の社内コスト比較は、既存の「自社便 vs 外注 比較ツール」を使ってください）。税込／税抜の扱いは ※要確認・会議で確定。</p>
 
   <details>
     <summary>フェリーで行けるところ・陸送で行けるところ（一覧）</summary>
@@ -219,6 +219,10 @@ th{background:var(--sky); color:var(--navy); font-size:12px; white-space:nowrap;
       <input type="number" id="rate-input" min="1" max="9999" step="1">
       <button type="button" id="rate-reset">250円に戻す</button>
       <p class="hint">初期値の250円/kmは2026-07-22に決定した販売車両の運搬費単価です。金額の決め直しがあったらここを変えてください（このパソコン・スマホの中に保存されます。端末ごとの設定です）。変えたときは「いつ・いくらに・なぜ」を会議のメモに残してください。</p>
+      <label style="font-size:13px; font-weight:600; margin-top:14px; display:block;">最低保証額（円）</label>
+      <input type="number" id="minfee-input" min="0" max="999999" step="500">
+      <button type="button" id="minfee-reset">16,000円に戻す</button>
+      <p class="hint">距離×単価がこの金額を下回るときは、この最低保証額を使います（外注業者へ最低支払う金額。2026-07-23決定：16,000円）。距離×単価がこの金額を上回ったら、そのまま距離×単価を使います。境目は自動計算のため、単価を変えても手直し不要です。</p>
       <label style="font-size:13px; font-weight:600;">拠点の住所（Googleマップの出発地に使います）</label>
       <div class="home-row">一宮<input type="text" id="home-ichinomiya"></div>
       <div class="home-row">三好<input type="text" id="home-miyoshi"></div>
@@ -240,7 +244,8 @@ th{background:var(--sky); color:var(--navy); font-size:12px; white-space:nowrap;
 
 // ==== PURE ====
 const LS_KEY = "fl_unpanhi_v1";
-const DEFAULT_RATE = 250;   // 円/km（2026-07-22決定・販売車両）
+const DEFAULT_RATE = 250;    // 円/km（2026-07-22決定・販売車両）
+const DEFAULT_MINFEE = 16000; // 最低保証額・円（2026-07-23決定。外注業者への最低支払額）
 
 /* 拠点住所の初期値（公式サイト corp.fuji-auto-ind.co.jp「会社情報＞アクセス」より・2026-07-22確認。
    三好はObsidian記録、中央はWebex納車連絡の記録とも一致を確認済み） */
@@ -310,13 +315,17 @@ function landText(region){
   return "高速道路で直行できます（本州内）";
 }
 
-/* 運搬費計算：走行キロ × 単価（四捨五入）。
+/* 運搬費計算：走行キロ × 単価（四捨五入）と最低保証額の高い方。
    台数では掛けない — FL2台までは同じ場所ならトラック1台＝1台と同額、
-   経由ありはトータル走行キロで計算（2026-07-22決定） */
-function calcFee(km, rate){
+   経由ありはトータル走行キロで計算（2026-07-22決定）。
+   最低保証額（16,000円）は業者への最低支払額。16,000÷250円/km＝64kmが
+   ちょうど釣り合う距離のため、64km以下は一律16,000円・64kmを超えると
+   距離×単価がそのまま上回っていく（2026-07-23決定・km単価を変えても自動で辻褄が合う） */
+function calcFee(km, rate, minFee){
   if(typeof km!=="number" || !isFinite(km) || km<=0) return null;
   if(typeof rate!=="number" || !isFinite(rate) || rate<=0) return null;
-  return {total: Math.round(km*rate)};
+  const mf = (typeof minFee==="number" && isFinite(minFee) && minFee>0) ? minFee : 0;
+  return {total: Math.max(mf, Math.round(km*rate)), minFeeApplied: (mf > Math.round(km*rate))};
 }
 
 /* 経由地リストの距離を合計する。純関数。
@@ -348,7 +357,7 @@ function loadSaved(){
 const SAVED = loadSaved();
 /* 保存済みの住所が空欄なら初期の公式住所に戻す（旧版で空欄のまま保存されたデータも自動で初期値に切り替わる） */
 function savedHome(v, def){ return (typeof v==="string" && v.trim()!=="") ? v : def; }
-const ST = {pref:"", km:null, mode:"1", addr:"", routeMode:"land", origin:((SAVED.origin==="三好"||SAVED.origin==="中央") ? SAVED.origin : "一宮"), rate:((typeof SAVED.rate==="number" && isFinite(SAVED.rate) && SAVED.rate>0) ? SAVED.rate : DEFAULT_RATE), homes:{"一宮":savedHome(SAVED.homeIchinomiya, DEFAULT_HOMES["一宮"]), "三好":savedHome(SAVED.homeMiyoshi, DEFAULT_HOMES["三好"]), "中央":savedHome(SAVED.homeChuo, DEFAULT_HOMES["中央"])}, legs:[], legSeq:0};
+const ST = {pref:"", km:null, mode:"1", addr:"", routeMode:"land", origin:((SAVED.origin==="三好"||SAVED.origin==="中央") ? SAVED.origin : "一宮"), rate:((typeof SAVED.rate==="number" && isFinite(SAVED.rate) && SAVED.rate>0) ? SAVED.rate : DEFAULT_RATE), minFee:((typeof SAVED.minFee==="number" && isFinite(SAVED.minFee) && SAVED.minFee>=0) ? SAVED.minFee : DEFAULT_MINFEE), homes:{"一宮":savedHome(SAVED.homeIchinomiya, DEFAULT_HOMES["一宮"]), "三好":savedHome(SAVED.homeMiyoshi, DEFAULT_HOMES["三好"]), "中央":savedHome(SAVED.homeChuo, DEFAULT_HOMES["中央"])}, legs:[], legSeq:0};
 
 /* 経由地を1件追加（住所・kmは空欄で新規作成。案件ごとに変わるため保存しない） */
 function newLeg(){
@@ -358,7 +367,7 @@ function newLeg(){
 function save(){
   try{
     localStorage.setItem(LS_KEY, JSON.stringify({
-      rate:ST.rate, origin:ST.origin,
+      rate:ST.rate, minFee:ST.minFee, origin:ST.origin,
       homeIchinomiya:ST.homes["一宮"], homeMiyoshi:ST.homes["三好"], homeChuo:ST.homes["中央"]
     }));
   }catch(e){}
@@ -511,7 +520,7 @@ function renderResult(){
       + '</div>';
     return;
   }
-  const r = calcFee(ST.km, ST.rate);
+  const r = calcFee(ST.km, ST.rate, ST.minFee);
   if(!r){
     v.className = "empty";
     v.innerHTML = '<div class="v-main">距離を入れると金額が出ます</div>';
@@ -522,8 +531,10 @@ function renderResult(){
   const subTxt = (ST.mode==="keiyu")
     ? "運搬費（経由あり・トータル走行キロ）"
     : "運搬費（片道・"+(ST.mode==="2" ? "2台・同じ場所" : "1台")+(ST.pref ? "・"+esc(ST.pref) : "")+"）";
-  const formula = kmDisp+"km × "+ST.rate.toLocaleString("ja-JP")+"円/km"
-    + (ST.mode==="2" ? "（2台まで1台分と同じ金額）" : "");
+  const formula = r.minFeeApplied
+    ? kmDisp+"km × "+ST.rate.toLocaleString("ja-JP")+"円/km では"+yen(Math.round(ST.km*ST.rate))+"のため、最低保証額"+yen(ST.minFee)+"を適用"
+    : kmDisp+"km × "+ST.rate.toLocaleString("ja-JP")+"円/km（最低保証"+yen(ST.minFee)+"を上回っています）"
+      + (ST.mode==="2" ? "（2台まで1台分と同じ金額）" : "");
   v.innerHTML =
     '<div class="v-sub">'+subTxt+'</div>'
     + '<div class="v-main">'+yen(r.total)+'</div>'
@@ -533,6 +544,7 @@ function renderResult(){
 function renderSettings(){
   el("h-rate").textContent = ST.rate.toLocaleString("ja-JP");
   el("rate-input").value = ST.rate;
+  el("minfee-input").value = ST.minFee;
   el("home-ichinomiya").value = ST.homes["一宮"];
   el("home-miyoshi").value = ST.homes["三好"];
   el("home-chuo").value = ST.homes["中央"];
@@ -602,6 +614,19 @@ function bindEvents(){
   });
   el("rate-reset").addEventListener("click", function(){
     ST.rate = DEFAULT_RATE;
+    save();
+    renderSettings();
+    renderResult();
+  });
+  el("minfee-input").addEventListener("input", function(e){
+    const n = Number(e.target.value);
+    if(e.target.value.trim()==="" || !isFinite(n) || n<0) return;   // 空欄・負数は無視（前の値を維持）
+    ST.minFee = n;
+    save();
+    renderResult();
+  });
+  el("minfee-reset").addEventListener("click", function(){
+    ST.minFee = DEFAULT_MINFEE;
     save();
     renderSettings();
     renderResult();
